@@ -12,6 +12,11 @@
 .idea/**/dictionaries
 .idea/**/shelf
 
+# Deployment items
+.idea/**/deployment.xml
+.idea/**/sshConfigs.xml
+.idea/**/webServers.xml
+
 # Generated files
 .idea/**/contentModel.xml
 

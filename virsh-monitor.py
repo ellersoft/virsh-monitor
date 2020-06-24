@@ -4,15 +4,26 @@
 import subprocess
 import re
 import curses
+import enum
 
 
-def virsh(*args):
-	out = subprocess.check_output(('virsh', *args))
-	out = re.split('[\r\n]+', out.decode("utf-8"))
-	return [[x.strip() for x in re.split('\\s{2,}', line)] for line in out]
+class Colors(enum.IntFlag):
+	DEFAULT = 0
+	GRAY = 1
+	SELECT = 2
+	HEAD = 4
 
 
-def print_table(std_scr, head_color, sel_color, sel_i, x, y, cols, gray_sel, items):
+def get_color(gray, gray_sel, sel_i, i, item):
+	sel_color = Colors.SELECT if sel_i == (i - 1) else Colors.DEFAULT
+	gray_color = Colors.GRAY if gray_sel(item) and gray else Colors.DEFAULT
+	return curses.color_pair(sel_color | gray_color)
+
+
+def print_table(std_scr, sel_i, x, y, cols, gray_sel, items):
+	head_color = curses.color_pair(Colors.HEAD)
+	sel_color = curses.color_pair(Colors.DEFAULT | Colors.SELECT)
+
 	total_len = sum(col[1] + 1 for col in cols)
 	std_scr.insstr(y, x, ' ' * total_len, head_color)
 	col_offset = 0
@@ -23,10 +34,7 @@ def print_table(std_scr, head_color, sel_color, sel_i, x, y, cols, gray_sel, ite
 	for c, (name, minsize, gray) in enumerate(cols, 0):
 		std_scr.addstr(y, x + col_offset, name, head_color)
 		for i, item in enumerate(items, 1):
-			color_offset = int(sel_i == (i - 1))
-			color = curses.color_pair(color_offset)
-			gray_color = curses.color_pair(color_offset + (3 if gray_sel(item) else 0))
-			std_scr.addstr(y + i, x + col_offset, item[c], gray_color if gray else color)
+			std_scr.addstr(y + i, x + col_offset, item[c], get_color(gray, gray_sel, sel_i, i, item))
 
 		col_offset += minsize + 1
 
@@ -68,13 +76,17 @@ def render(std_scr, vms, nets, pools, sel, sel_i):
 		(2, net_offset, len(nets) + 2, pool_table, lambda pool: pool[1] != "active", pools)
 	]
 
-	head_color = curses.color_pair(2)
-	sel_color = curses.color_pair(1)
 	for sel_c, x, y, table, sel_test, items in tables:
 		table_sel = sel_i if sel == sel_c else -1
-		print_table(std_scr, head_color, sel_color, table_sel, x, y, table, sel_test, items)
+		print_table(std_scr, table_sel, x, y, table, sel_test, items)
 
-	print_help(std_scr, curses.color_pair(1), helps)
+	print_help(std_scr, curses.color_pair(Colors.DEFAULT | Colors.SELECT), helps)
+
+
+def virsh(*args):
+	out = subprocess.check_output(('virsh', *args))
+	out = re.split('[\r\n]+', out.decode("utf-8"))
+	return [[x.strip() for x in re.split('\\s{2,}', line)] for line in out]
 
 
 def main(std_scr):
@@ -82,10 +94,10 @@ def main(std_scr):
 	curses.halfdelay(20)
 	curses.start_color()
 	curses.use_default_colors()
-	curses.init_pair(1, 0, 6)
-	curses.init_pair(2, 0, 2)
-	curses.init_pair(3, 8, -1)
-	curses.init_pair(4, 8, 6)
+	curses.init_pair(Colors.DEFAULT | Colors.SELECT, 0, 6)
+	curses.init_pair(Colors.HEAD, 0, 2)
+	curses.init_pair(Colors.GRAY, 8, -1)
+	curses.init_pair(Colors.GRAY | Colors.SELECT, 8, 6)
 	sel = 0
 	sel_i = 0
 
