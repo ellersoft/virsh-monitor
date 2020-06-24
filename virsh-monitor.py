@@ -14,14 +14,14 @@ class Colors(enum.IntFlag):
 	SELECT = 2
 	HEAD = 4
 
-	@staticmethod
-	def get_color(gray, gray_sel, sel_i, i, item):
-		sel_color = Colors.SELECT if sel_i == (i - 1) else Colors.DEFAULT
-		gray_color = Colors.GRAY if gray_sel(item) and gray else Colors.DEFAULT
+	@classmethod
+	def get_color(cls, gray, gray_sel, sel_i, i, item):
+		sel_color = cls.SELECT if sel_i == (i - 1) else cls.DEFAULT
+		gray_color = cls.GRAY if gray_sel(item) and gray else cls.DEFAULT
 		return curses.color_pair(sel_color | gray_color)
 
-	@staticmethod
-	def init_curses():
+	@classmethod
+	def init_curses(cls):
 		gray_fg = 8
 		select_bg = 6
 		head_bg = 2
@@ -29,10 +29,10 @@ class Colors(enum.IntFlag):
 
 		curses.start_color()
 		curses.use_default_colors()
-		curses.init_pair(Colors.DEFAULT | Colors.SELECT, sel_head_fg, select_bg)
-		curses.init_pair(Colors.HEAD, sel_head_fg, head_bg)
-		curses.init_pair(Colors.GRAY, gray_fg, -1)
-		curses.init_pair(Colors.GRAY | Colors.SELECT, gray_fg, select_bg)
+		curses.init_pair(cls.DEFAULT | cls.SELECT, sel_head_fg, select_bg)
+		curses.init_pair(cls.HEAD, sel_head_fg, head_bg)
+		curses.init_pair(cls.GRAY, gray_fg, -1)
+		curses.init_pair(cls.GRAY | cls.SELECT, gray_fg, select_bg)
 
 
 class State:
@@ -52,41 +52,41 @@ class State:
 		1: ('active', 0),
 	}
 
-	@staticmethod
-	def state_val(item):
-		return State.state_dict[item][0]
+	@classmethod
+	def state_val(cls, item):
+		return cls.state_dict[item][0]
 
-	@staticmethod
-	def state(item):
-		return State.state_val(item.state()[0])
+	@classmethod
+	def state(cls, item):
+		return cls.state_val(item.state()[0])
 
-	@staticmethod
-	def sort_vm(vm):
-		return State.state_dict[vm.state()[0]][1], vm.ID()
+	@classmethod
+	def sort_vm(cls, vm):
+		return cls.state_dict[vm.state()[0]][1], vm.ID()
 
-	@staticmethod
-	def sort_net_pool(item):
-		return State.active_dict[item.isActive()][1], item.name()
+	@classmethod
+	def sort_net_pool(cls, item):
+		return cls.active_dict[item.isActive()][1], item.name()
 
-	@staticmethod
-	def active_val(item):
-		return State.active_dict[item][0]
+	@classmethod
+	def active_val(cls, item):
+		return cls.active_dict[item][0]
 
-	@staticmethod
-	def active(item):
-		return State.active_val(item.isActive())
+	@classmethod
+	def active(cls, item):
+		return cls.active_val(item.isActive())
 
 	@staticmethod
 	def set_x_for_true(x):
 		return 'X' if x else ' '
 
-	@staticmethod
-	def auto_start(item):
-		return State.set_x_for_true(item.autostart())
+	@classmethod
+	def auto_start(cls, item):
+		return cls.set_x_for_true(item.autostart())
 
-	@staticmethod
-	def persistent(item):
-		return State.set_x_for_true(item.isPersistent())
+	@classmethod
+	def persistent(cls, item):
+		return cls.set_x_for_true(item.isPersistent())
 
 
 def print_table(std_scr, sel_i, x, y, cols, gray_sel, items):
