@@ -13,11 +13,11 @@ class Colors(enum.IntFlag):
 	SELECT = 2
 	HEAD = 4
 
-
-def get_color(gray, gray_sel, sel_i, i, item):
-	sel_color = Colors.SELECT if sel_i == (i - 1) else Colors.DEFAULT
-	gray_color = Colors.GRAY if gray_sel(item) and gray else Colors.DEFAULT
-	return curses.color_pair(sel_color | gray_color)
+	@staticmethod
+	def get_color(gray, gray_sel, sel_i, i, item):
+		sel_color = Colors.SELECT if sel_i == (i - 1) else Colors.DEFAULT
+		gray_color = Colors.GRAY if gray_sel(item) and gray else Colors.DEFAULT
+		return curses.color_pair(sel_color | gray_color)
 
 
 def print_table(std_scr, sel_i, x, y, cols, gray_sel, items):
@@ -34,7 +34,7 @@ def print_table(std_scr, sel_i, x, y, cols, gray_sel, items):
 	for c, (name, minsize, gray) in enumerate(cols, 0):
 		std_scr.addstr(y, x + col_offset, name, head_color)
 		for i, item in enumerate(items, 1):
-			std_scr.addstr(y + i, x + col_offset, item[c], get_color(gray, gray_sel, sel_i, i, item))
+			std_scr.addstr(y + i, x + col_offset, item[c], Colors.get_color(gray, gray_sel, sel_i, i, item))
 
 		col_offset += minsize + 1
 
