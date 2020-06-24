@@ -19,6 +19,20 @@ class Colors(enum.IntFlag):
 		gray_color = Colors.GRAY if gray_sel(item) and gray else Colors.DEFAULT
 		return curses.color_pair(sel_color | gray_color)
 
+	@staticmethod
+	def init_curses():
+		gray_fg = 8
+		select_bg = 6
+		head_bg = 2
+		sel_head_fg = 0
+
+		curses.start_color()
+		curses.use_default_colors()
+		curses.init_pair(Colors.DEFAULT | Colors.SELECT, sel_head_fg, select_bg)
+		curses.init_pair(Colors.HEAD, sel_head_fg, head_bg)
+		curses.init_pair(Colors.GRAY, gray_fg, -1)
+		curses.init_pair(Colors.GRAY | Colors.SELECT, gray_fg, select_bg)
+
 
 def print_table(std_scr, sel_i, x, y, cols, gray_sel, items):
 	head_color = curses.color_pair(Colors.HEAD)
@@ -92,17 +106,13 @@ def virsh(*args):
 def main(std_scr):
 	curses.curs_set(0)
 	curses.halfdelay(20)
-	curses.start_color()
-	curses.use_default_colors()
-	curses.init_pair(Colors.DEFAULT | Colors.SELECT, 0, 6)
-	curses.init_pair(Colors.HEAD, 0, 2)
-	curses.init_pair(Colors.GRAY, 8, -1)
-	curses.init_pair(Colors.GRAY | Colors.SELECT, 8, 6)
+	Colors.init_curses()
 	sel = 0
 	sel_i = 0
 
 	start_commands = ['start', 'net-start', 'pool-start']
 	stop_commands = ['destroy', 'net-destroy', 'pool-destroy']
+	arg_indexes = [1, 0, 0]
 
 	while True:
 		vms = virsh('list', '--all')[2:][:-1]
@@ -110,7 +120,6 @@ def main(std_scr):
 		pools = virsh('pool-list', '--all')[2:][:-1]
 
 		args = [vms, nets, pools]
-		arg_indexes = [1, 0, 0]
 
 		std_scr.clear()
 		render(std_scr, vms, nets, pools, sel, sel_i)
