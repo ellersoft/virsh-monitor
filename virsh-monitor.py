@@ -61,8 +61,12 @@ class State:
 		return State.state_val(item.state()[0])
 
 	@staticmethod
-	def sort(val):
-		return State.state_dict[val][1]
+	def sort_vm(vm):
+		return State.state_dict[vm.state()[0]][1], vm.ID()
+
+	@staticmethod
+	def sort_net_pool(item):
+		return State.active_dict[item.isActive()][1], item.name()
 
 	@staticmethod
 	def active_val(item):
@@ -115,10 +119,10 @@ def print_help(std_scr, help_color, helps):
 		offset += len(key) + max_len
 
 
-def render(std_scr, vms, nets, pools, sel, sel_i):
+def render(std_scr, data, sel, sel_i):
 	pool_diff = 2
-	longest_net = max((len(net.name()) for net in nets), default=0)
-	longest_pool = max((len(pool.name()) for pool in pools), default=0)
+	longest_net = max((len(net.name()) for net in data[1]), default=0)
+	longest_pool = max((len(pool.name()) for pool in data[2]), default=0)
 	longest_net = max(longest_net, longest_pool - pool_diff)
 	height, width = std_scr.getmaxyx()
 	net_offset = width - longest_net - 9 - pool_diff - 3
@@ -129,9 +133,9 @@ def render(std_scr, vms, nets, pools, sel, sel_i):
 	net_table = [("NET", longest_net, True), ("STATUS", 8, False), ("A", 1, False), ("P", 1, False)]
 	pool_table = [("POOL", longest_net + pool_diff, True), ("STATUS", 8, False), ("A", 1, False)]
 
-	vms = [['-' if vm.ID() == -1 else str(vm.ID()), vm.name(), State.state(vm)] for vm in vms]
-	nets = [[net.name(), State.active(net), State.auto_start(net), State.persistent(net)] for net in nets]
-	pools = [[pool.name(), State.active(pool), State.auto_start(pool)] for pool in pools]
+	vms = [['-' if vm.ID() == -1 else str(vm.ID()), vm.name(), State.state(vm)] for vm in data[0]]
+	nets = [[net.name(), State.active(net), State.auto_start(net), State.persistent(net)] for net in data[1]]
+	pools = [[pool.name(), State.active(pool), State.auto_start(pool)] for pool in data[2]]
 
 	tables = [
 		(0, 0, 0, vm_table, lambda vm: vm[2] != State.state_val(libvirt.VIR_DOMAIN_RUNNING), vms),
@@ -146,46 +150,49 @@ def render(std_scr, vms, nets, pools, sel, sel_i):
 	print_help(std_scr, curses.color_pair(Colors.DEFAULT | Colors.SELECT), helps)
 
 
+def pump(std_scr, con, sel, sel_i):
+	vms = sorted(con.listAllDomains(), key=State.sort_vm)
+	nets = sorted(con.listAllNetworks(), key=State.sort_net_pool)
+	pools = sorted(con.listAllStoragePools(), key=State.sort_net_pool)
+	data = [vms, nets, pools]
+
+	std_scr.clear()
+	render(std_scr, data, sel, sel_i)
+	std_scr.refresh()
+	c = std_scr.getch()
+
+	if c == curses.KEY_F10:
+		return False, sel, sel_i
+	elif c == ord('\t'):
+		sel = 0 if sel == 2 else sel + 1
+	elif c == curses.KEY_DOWN or c == curses.KEY_UP:
+		sel_i += -1 if c == curses.KEY_UP else 1
+	elif (c == curses.KEY_F1 or c == curses.KEY_F2) and sel_i < len(data[sel]):
+		try:
+			if c == curses.KEY_F1:
+				# noinspection PyUnresolvedReferences
+				data[sel][sel_i].create()
+			else:
+				# noinspection PyUnresolvedReferences
+				data[sel][sel_i].destroy()
+		except libvirt.libvirtError:
+			pass
+
+	if sel_i == -1:
+		sel_i += 1
+	if sel_i >= len(data[sel]):
+		sel_i = len(data[sel]) - 1
+	return True, sel, sel_i
+
+
 def main(std_scr, con):
 	curses.curs_set(0)
 	curses.halfdelay(20)
 	Colors.init_curses()
-	sel = 0
-	sel_i = 0
+	cont, sel, sel_i = True, 0, 0
 
-	while True:
-		vms = sorted(con.listAllDomains(), key=lambda vm: (State.sort(vm.state()[0]), vm.ID()))
-		nets = sorted(con.listAllNetworks(), key=lambda net: (State.active_dict[net.isActive()][1], net.name()))
-		pools = sorted(con.listAllStoragePools(), key=lambda pool: (State.active_dict[pool.isActive()][1], pool.name()))
-
-		arg = [vms, nets, pools]
-
-		std_scr.clear()
-		render(std_scr, vms, nets, pools, sel, sel_i)
-		std_scr.refresh()
-		c = std_scr.getch()
-
-		if c == curses.KEY_F10:
-			exit()
-		elif c == ord('\t'):
-			sel = 0 if sel == 2 else sel + 1
-		elif c == curses.KEY_DOWN or c == curses.KEY_UP:
-			sel_i += -1 if c == curses.KEY_UP else 1
-		elif (c == curses.KEY_F1 or c == curses.KEY_F2) and sel_i < len(arg[sel]):
-			try:
-				if c == curses.KEY_F1:
-					# noinspection PyUnresolvedReferences
-					arg[sel][sel_i].create()
-				else:
-					# noinspection PyUnresolvedReferences
-					arg[sel][sel_i].destroy()
-			except libvirt.libvirtError:
-				pass
-
-		if sel_i == -1:
-			sel_i += 1
-		if sel_i >= len(arg[sel]):
-			sel_i = len(arg[sel]) - 1
+	while cont:
+		cont, sel, sel_i = pump(std_scr, con, sel, sel_i)
 
 
 if __name__ == '__main__':
