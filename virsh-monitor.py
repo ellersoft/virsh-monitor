@@ -48,8 +48,8 @@ class State:
 		libvirt.VIR_DOMAIN_PMSUSPENDED: ('suspended', 5),
 	}
 	active_dict = {
-		0: ('inactive', 1),
-		1: ('active', 0),
+		0: ('I', 1),
+		1: ('A', 0),
 	}
 
 	@classmethod
@@ -119,23 +119,51 @@ def print_help(std_scr, help_color, helps):
 		offset += len(key) + max_len
 
 
+def mem(value, unit=0, inc_units=True):
+	units = ["B", "k", "M", "G"]
+	while value > 1024:
+		value /= 1024
+		unit += 1
+	return str(round(value, 1)) + (units[unit] if inc_units else "")
+
+
+def map_vm(vm):
+	if vm.state()[0] == 1:
+		mem_avail = vm.memoryStats().get('available', 0)
+		mem_total = vm.memoryStats()['actual']
+		memory = f'{mem(mem_total, 1)} {((mem_total - mem_avail) / mem_total * 100):.0f}%'
+		cpus = str(vm.maxVcpus())
+	else:
+		memory = "N/A"
+		cpus = ""
+	return ['-' if vm.ID() == -1 else str(vm.ID()), vm.name(), State.state(vm), cpus, memory]
+
+
+def map_net(net):
+	return [net.name(), State.active(net), State.auto_start(net), State.persistent(net)]
+
+
+def map_pool(pool):
+	return [pool.name(), State.active(pool), State.auto_start(pool)]
+
+
 def render(std_scr, data, sel, sel_i):
 	pool_diff = 2
 	longest_net = max((len(net.name()) for net in data[1]), default=0)
 	longest_pool = max((len(pool.name()) for pool in data[2]), default=0)
-	longest_net = max(longest_net, longest_pool - pool_diff)
+	longest_net = max(max(longest_net, longest_pool - pool_diff), 4)
 	height, width = std_scr.getmaxyx()
-	net_offset = width - longest_net - 9 - pool_diff - 3
-	vm_width = net_offset - 3 - 9 - 1 - 2
+	net_offset = width - longest_net - 2 - pool_diff - 3
+	vm_width = net_offset - 3 - 9 - 1 - 2 - 10 - 1 - 3
 
 	helps = [("TAB", "Next"), ("F1", "Start"), ("F2", "Stop"), ("F10", "Quit")]
-	vm_table = [("ID", 3, False), ("VM", vm_width - 1, True), ("STATUS", 9, False)]
-	net_table = [("NET", longest_net, True), ("STATUS", 8, False), ("A", 1, False), ("P", 1, False)]
-	pool_table = [("POOL", longest_net + pool_diff, True), ("STATUS", 8, False), ("A", 1, False)]
+	vm_table = [("ID", 3, False), ("VM", vm_width, True), ("STATUS", 9, False), ("C", 2, False), ("MEM", 9, False)]
+	net_table = [("NET", longest_net, True), ("S", 1, False), ("A", 1, False), ("P", 1, False)]
+	pool_table = [("POOL", longest_net + pool_diff, True), ("S", 1, False), ("A", 1, False)]
 
-	vms = [['-' if vm.ID() == -1 else str(vm.ID()), vm.name(), State.state(vm)] for vm in data[0]]
-	nets = [[net.name(), State.active(net), State.auto_start(net), State.persistent(net)] for net in data[1]]
-	pools = [[pool.name(), State.active(pool), State.auto_start(pool)] for pool in data[2]]
+	vms = [map_vm(vm) for vm in data[0]]
+	nets = [map_net(net) for net in data[1]]
+	pools = [map_pool(pool) for pool in data[2]]
 
 	tables = [
 		(0, 0, 0, vm_table, lambda vm: vm[2] != State.state_val(libvirt.VIR_DOMAIN_RUNNING), vms),
